@@ -28,12 +28,6 @@ use std::sync::Mutex;
 use tauri::State;
 use crate::AppState;
 
-// --- State Definition ---
-pub struct AppState {
-    pub root: PathBuf,
-    pub registry: Mutex<ProjectRegistry>,
-}
-
 // --- Structs & Enums ---
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BannerMetadata {
@@ -121,8 +115,13 @@ pub fn create_project(
     };
 
     // 1. Create the projects folder if it doesn't exist
-    let project_path = state.root.join("Projects").join(project_id.to_string());
-    fs::create_dir_all(&project_path).map_err(|e| e.to_string())?;
+    let projects_root = state.root.join("Projects");
+
+    fs::create_dir_all(&projects_root).map_err(|e| e.to_string())?;
+
+    let project_path = projects_root.join(project_id.to_string());
+
+    fs::create_dir_all(&project_path).map_err(|e| e.to_string())?;
 
     // 2. Scaffold subfolders safely
     for folder in ProjectFolder::all() {
@@ -143,6 +142,10 @@ pub fn create_project(
     registry.projects.insert(0, metadata.clone()); // Insert at top of list
 
     let registry_path = state.root.join("project_registry.json");
+    if !registry_path.exists() {
+        fs::write(&registry_path, b"{\"projects\": []}")
+            .map_err(|e| e.to_string())?;
+    }
     let registry_tmp_path = state.root.join("project_registry.tmp");
 
     let registry_bytes = serde_json::to_vec_pretty(&*registry).map_err(|e| e.to_string())?;
